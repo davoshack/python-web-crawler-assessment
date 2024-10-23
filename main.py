@@ -9,7 +9,7 @@ import httpx
 
 async def main():
     filterer = UrlFilterer(
-        domains={"docs.python.org"},
+        domains={"docs.python.org", "pypi.org"},
         blacklist={".jpg", ".css", ".js", ".svg", ".jpeg", ".pdf"},
     )
 
@@ -17,10 +17,10 @@ async def main():
     async with httpx.AsyncClient() as client:
         crawler = WebCrawler(
             client=client,
-            urls_list=["https://docs.python.org/"],
+            urls_list=["https://docs.python.org/", "https://pypi.org/help"],
             filter_url=filterer.filter_url,
-            workers=4,
-            max_depth=5,
+            workers=5,
+            max_depth=25,
         ) 
         await crawler.run()
     end = time.perf_counter()

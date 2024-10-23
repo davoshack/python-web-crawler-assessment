@@ -6,7 +6,7 @@ import httpx
 from typing import Callable, Iterable
 
 from utils.urls_utils import UrlParser
-from db.crawler_db_actions import store_response_data
+from db.crawler_db_actions import store_data_responses, store_statistics
 
 
 class WebCrawler:
@@ -29,6 +29,9 @@ class WebCrawler:
         self.num_workers = workers
         self.limit = max_depth
         self.total = 0
+        self.total_number_errors = 0                          # Total number of errors encountered during crawling
+        self.total_number_urls_crawled_per_domain = {}        # Total number of URLs crawled per domain
+        self.total_number_urls_per_status_code = {}           # Total number of URLs crawled per status code
 
     async def run(self):
         await self.on_found_links(self.start_urls)
@@ -40,6 +43,13 @@ class WebCrawler:
 
         for worker in workers:
             worker.cancel()
+        
+        await store_statistics(
+            len(self.urls_done), 
+            self.total_number_errors, 
+            self.total_number_urls_crawled_per_domain, 
+            self.total_number_urls_per_status_code)
+        
 
     async def worker(self):
         while True:
@@ -53,7 +63,8 @@ class WebCrawler:
         try:
             await self.crawl(url)
         except Exception as exc:
-            pass
+            self.total_number_errors += 1
+            print(f"Error: {exc} for {url}")
         finally:
             self.work_todo.task_done()
 
@@ -69,7 +80,7 @@ class WebCrawler:
         )
 
         # Store url, status, content size and page title
-        await store_response_data(url, response.status_code, len(response.content), page_title)
+        await store_data_responses(url, response.status_code, len(response.content), page_title)
 
         await self.on_found_links(found_links)
 
