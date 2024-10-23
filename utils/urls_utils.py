@@ -4,11 +4,12 @@ import urllib.parse
 
 from typing import Callable
 
+
 class UrlFilterer:
     def __init__(
-            self,
-            domains: set[str] | None = None,
-            blacklist: set[str] | None = None,
+        self,
+        domains: set[str] | None = None,
+        blacklist: set[str] | None = None,
     ):
         self.domains = domains
         self.blacklist = blacklist
@@ -17,22 +18,20 @@ class UrlFilterer:
         url = urllib.parse.urljoin(base, url)
         url, _ = urllib.parse.urldefrag(url)
         parsed = urllib.parse.urlparse(url)
-        if (self.domains is not None
-                and parsed.netloc not in self.domains):
+        if self.domains is not None and parsed.netloc not in self.domains:
             return None
         ext = pathlib.Path(parsed.path).suffix
-        if (self.blacklist is not None
-                and ext in self.blacklist):
+        if self.blacklist is not None and ext in self.blacklist:
             return None
         return url
 
 
 class UrlParser(html.parser.HTMLParser):
     def __init__(
-            self,
-            base: str,
-            filter_url: Callable[[str, str], str | None],
-            number_urls_crawled_per_domain: dict[str, int]
+        self,
+        base: str,
+        filter_url: Callable[[str, str], str | None],
+        number_urls_crawled_per_domain: dict[str, int],
     ):
         super().__init__()
         self.base = base
@@ -42,7 +41,7 @@ class UrlParser(html.parser.HTMLParser):
         self.number_urls_crawled_per_domain = number_urls_crawled_per_domain
 
     def get_title(self) -> str:
-        page_title = self.rawdata.split("<title>")[1].split("</title>")[0] 
+        page_title = self.rawdata.split("<title>")[1].split("</title>")[0]
         return page_title
 
     def handle_starttag(self, tag: str, attrs):
@@ -67,4 +66,5 @@ class UrlParser(html.parser.HTMLParser):
             self.number_urls_crawled_per_domain[parsed.netloc] = 0
         else:
             self.number_urls_crawled_per_domain.update(
-                {parsed.netloc: self.number_urls_crawled_per_domain[parsed.netloc] + 1})
+                {parsed.netloc: self.number_urls_crawled_per_domain[parsed.netloc] + 1}
+            )

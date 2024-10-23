@@ -5,7 +5,6 @@ import time
 from crawl import WebCrawler
 from utils.urls_utils import UrlFilterer
 
-import httpx
 
 async def main():
     filterer = UrlFilterer(
@@ -21,7 +20,7 @@ async def main():
             filter_url=filterer.filter_url,
             workers=5,
             max_depth=25,
-        ) 
+        )
         await crawler.run()
     end = time.perf_counter()
 
@@ -34,5 +33,5 @@ async def main():
     print(f"Done in {end - start:.2f}s")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main(), debug=True)

@@ -11,45 +11,50 @@ from db.crawler_db_actions import store_data_responses, store_statistics
 
 class WebCrawler:
     def __init__(
-            self,
-            client: httpx.AsyncClient,                       # HTTP client
-            urls_list: Iterable[str],                        # URLs to start crawling
-            filter_url: Callable[[str, str], str | None],    # A list of domains to restrict crawling
-            workers: int = 5,                                # Number of concurrent workers
-            max_depth: int = 25,                             # Maximum number of links to crawl
+        self,
+        client: httpx.AsyncClient,  # HTTP client
+        urls_list: Iterable[str],  # URLs to start crawling
+        filter_url: Callable[
+            [str, str], str | None
+        ],  # A list of domains to restrict crawling
+        workers: int = 5,  # Number of concurrent workers
+        max_depth: int = 25,  # Maximum number of links to crawl
     ):
         self.client = client
 
         self.start_urls = set(urls_list)
-        self.work_todo = asyncio.Queue()                      # Queue of URLs to crawl 
-        self.urls_seen = set()                                # URLs seen to avoid duplicates
-        self.urls_done = set()                                # URLs already crawled
+        self.work_todo = asyncio.Queue()  # Queue of URLs to crawl
+        self.urls_seen = set()  # URLs seen to avoid duplicates
+        self.urls_done = set()  # URLs already crawled
 
         self.filter_url = filter_url
         self.num_workers = workers
         self.limit = max_depth
         self.total = 0
-        self.total_number_errors = 0                          # Total number of errors encountered during crawling
-        self.total_number_urls_crawled_per_domain = {}        # Total number of URLs crawled per domain
-        self.total_number_urls_per_status_code = {}           # Total number of URLs crawled per status code
+        self.total_number_errors = (
+            0  # Total number of errors encountered during crawling
+        )
+        self.total_number_urls_crawled_per_domain = (
+            {}
+        )  # Total number of URLs crawled per domain
+        self.total_number_urls_per_status_code = (
+            {}
+        )  # Total number of URLs crawled per status code
 
     async def run(self):
         await self.on_found_links(self.start_urls)
-        workers = [
-            asyncio.create_task(self.worker())
-            for _ in range(self.num_workers)
-        ]
+        workers = [asyncio.create_task(self.worker()) for _ in range(self.num_workers)]
         await self.work_todo.join()
 
         for worker in workers:
             worker.cancel()
-        
+
         await store_statistics(
-            len(self.urls_done), 
-            self.total_number_errors, 
+            len(self.urls_done),
+            self.total_number_errors,
             self.total_number_urls_crawled_per_domain,
-            self.total_number_urls_per_status_code)
-        
+            self.total_number_urls_per_status_code,
+        )
 
     async def worker(self):
         while True:
@@ -69,25 +74,48 @@ class WebCrawler:
             self.work_todo.task_done()
 
     async def crawl(self, url: str):
-
-        await asyncio.sleep(.1)
+        await asyncio.sleep(0.1)
 
         response = await self.client.get(url, follow_redirects=True)
-        
+
+        self.get_total_number_urls_per_status_code(response)
+
         self.parser = await self.parse_links(
             base=str(response.url),
             text=response.text,
         )
 
         # Store url, status, content size and page title
-        await store_data_responses(url, response.status_code, len(response.content), self.parser.page_title)
+        await store_data_responses(
+            url, response.status_code, len(response.content), self.parser.page_title
+        )
 
         await self.on_found_links(self.parser.found_links)
 
         self.urls_done.add(url)
 
+    def get_total_number_urls_per_status_code(self, response):
+        if response.status_code == httpx.codes.OK:
+            self.total_number_urls_per_status_code["200"] = (
+                self.total_number_urls_per_status_code.get("200", 0) + 1
+            )
+        if response.status_code == httpx.codes.NOT_FOUND:
+            self.total_number_urls_per_status_code["404"] = (
+                self.total_number_urls_per_status_code.get("404", 0) + 1
+            )
+        if response.status_code == httpx.codes.FORBIDDEN:
+            self.total_number_urls_per_status_code["403"] = (
+                self.total_number_urls_per_status_code.get("403", 0) + 1
+            )
+        if response.status_code == httpx.codes.INTERNAL_SERVER_ERROR:
+            self.total_number_urls_per_status_code["500"] = (
+                self.total_number_urls_per_status_code.get("500", 0) + 1
+            )
+
     async def parse_links(self, base: str, text: str) -> set[str]:
-        parser = UrlParser(base, self.filter_url, self.total_number_urls_crawled_per_domain)
+        parser = UrlParser(
+            base, self.filter_url, self.total_number_urls_crawled_per_domain
+        )
         parser.feed(text)
         return parser
 
