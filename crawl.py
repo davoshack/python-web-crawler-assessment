@@ -47,7 +47,7 @@ class WebCrawler:
         await store_statistics(
             len(self.urls_done), 
             self.total_number_errors, 
-            self.total_number_urls_crawled_per_domain, 
+            self.total_number_urls_crawled_per_domain,
             self.total_number_urls_per_status_code)
         
 
@@ -74,22 +74,22 @@ class WebCrawler:
 
         response = await self.client.get(url, follow_redirects=True)
         
-        found_links, page_title = await self.parse_links(
+        self.parser = await self.parse_links(
             base=str(response.url),
             text=response.text,
         )
 
         # Store url, status, content size and page title
-        await store_data_responses(url, response.status_code, len(response.content), page_title)
+        await store_data_responses(url, response.status_code, len(response.content), self.parser.page_title)
 
-        await self.on_found_links(found_links)
+        await self.on_found_links(self.parser.found_links)
 
         self.urls_done.add(url)
 
     async def parse_links(self, base: str, text: str) -> set[str]:
-        parser = UrlParser(base, self.filter_url)
+        parser = UrlParser(base, self.filter_url, self.total_number_urls_crawled_per_domain)
         parser.feed(text)
-        return parser.found_links, parser.page_title
+        return parser
 
     async def on_found_links(self, urls: set[str]):
         new = urls - self.urls_seen

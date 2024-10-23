@@ -31,13 +31,15 @@ class UrlParser(html.parser.HTMLParser):
     def __init__(
             self,
             base: str,
-            filter_url: Callable[[str, str], str | None]
+            filter_url: Callable[[str, str], str | None],
+            number_urls_crawled_per_domain: dict[str, int]
     ):
         super().__init__()
         self.base = base
         self.filter_url = filter_url
         self.found_links = set()
         self.page_title = "Title not found"
+        self.number_urls_crawled_per_domain = number_urls_crawled_per_domain
 
     def get_title(self) -> str:
         page_title = self.rawdata.split("<title>")[1].split("</title>")[0] 
@@ -55,4 +57,14 @@ class UrlParser(html.parser.HTMLParser):
                 continue
 
             if (url := self.filter_url(self.base, url)) is not None:
+                self.get_number_ulrs_crawled_per_domain(url)
                 self.found_links.add(url)
+
+    def get_number_ulrs_crawled_per_domain(self, url: str):
+        parsed = urllib.parse.urlparse(url)
+
+        if parsed.netloc not in self.number_urls_crawled_per_domain.keys():
+            self.number_urls_crawled_per_domain[parsed.netloc] = 0
+        else:
+            self.number_urls_crawled_per_domain.update(
+                {parsed.netloc: self.number_urls_crawled_per_domain[parsed.netloc] + 1})
