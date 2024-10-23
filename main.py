@@ -25,10 +25,7 @@ async def main():
     end = time.perf_counter()
 
     seen = sorted(crawler.urls_seen)
-    print("Results:")
-    for url in seen:
-        print(url)
-    print(f"Crawled: {len(crawler.urls_done)} URLs")
+    print(f"Done: {len(crawler.urls_done)} URLs")
     print(f"Found: {len(seen)} URLs")
     print(f"Done in {end - start:.2f}s")
 
